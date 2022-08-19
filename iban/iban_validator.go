@@ -1,7 +1,10 @@
 package iban
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -68,10 +71,48 @@ func (iban *Iban) isValidIBANLength() error {
 }
 
 func (iban *Iban) isValidBBAN() error {
+	bban := iban.BBAN
+	format := iban.countrySetting.Format
+
+	//format quantifier, e.g. 08 -> {8}
+	formatter := regexp.MustCompile(`\d{2}`)
+	format = formatter.ReplaceAllStringFunc(format, func(m string) string {
+		quantifier, atoiErr := strconv.Atoi(m)
+		if atoiErr != nil {
+			return ""
+		}
+
+		return fmt.Sprintf("{%d}", quantifier)
+	})
+
+	//format the character set
+	formatter = regexp.MustCompile(`[AFU]`)
+	format = formatter.ReplaceAllStringFunc(format, func(m string) string {
+		return countryReg[m]
+	})
+
+	regexFormatter, err := regexp.Compile(format)
+	if err != nil {
+		return fmt.Errorf("failed compile the regexp: %v", err.Error())
+	}
+
+	if !regexFormatter.MatchString(bban) {
+		return errors.New("BBAN part of IBAN is not formatted according to country specification")
+	}
+
 	return nil
 }
 
 func (iban *Iban) isValidIBANCheckDigit() error {
+	//rearrange iban
+	newIban := iban.BBAN + iban.CountryCode + iban.CheckDigit
+
+	modStr := replaceCharToInt(newIban)
+
+	if mod97(modStr) != 1 {
+		return errors.New("not valid check digit")
+	}
+
 	return nil
 }
 
@@ -80,4 +121,54 @@ func getCountrySetting(countryCode string) (CountrySetting, error) {
 		return item, nil
 	}
 	return CountrySetting{}, fmt.Errorf("Do not support country: %v", countryCode)
+}
+
+func replaceCharToInt(str string) string {
+	// replace the char A - Z to int
+	formatParts := regexp.MustCompile(`[A-Z]`)
+	return formatParts.ReplaceAllStringFunc(str, func(m string) string {
+		return strconv.Itoa(int(m[0] - 55))
+	})
+}
+
+func mod97(str string) int {
+
+	// initial remaining is 0 and remaining string is ""
+	resStr := ""
+	res := 0
+
+	//the loop to do mod97 algorithm until no digits in the str left
+	for ok := true; ok; ok = len(str) > 0 {
+
+		//construct remaining String
+		if res > 0 {
+			resStr = strconv.Itoa(res)
+		} else {
+			resStr = ""
+		}
+
+		//calculate how many digits needed to construct 9 digits, besides the previous remaining digit
+		n := 9 - len(resStr)
+
+		//if less digit than needed, construct with remaining digit
+		if len(str) < n {
+			n = len(str)
+		}
+
+		//construct num String to be mod
+		newStr := resStr + str[:n]
+
+		value, err := strconv.Atoi(newStr)
+		if err != nil {
+			return 0
+		}
+
+		// mod by 97
+		res = value % 97
+
+		//redefine the digits left, prepare for the next calculation
+		str = str[n:]
+	}
+
+	return res
 }

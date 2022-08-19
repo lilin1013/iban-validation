@@ -6,7 +6,11 @@ A service to valid iban number. it verifies the IBAN number with following these
 2. country specific IBAN structure
 3. IBAN CHECKSUM
 
-*NOTE: Some countries use internal check digit algorithms to validate domestic BBAN, Every country uses a different algorithm and in some countries algorithms vary from bank to bank or even individual branches. that is not included in this service
+*NOTE
+1. Some countries use internal check digit algorithms to validate domestic BBAN, Every country uses a different algorithm and in some countries algorithms vary from bank to bank or even individual branches. that is not included in this service
+2. supported country can be found here https://github.com/lilin1013/iban-validation/blob/main/iban/country_setting.go
+
+
 
 
 ### How to start

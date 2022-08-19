@@ -7,7 +7,6 @@ import (
 
 func main() {
 	router := gin.Default()
-	router.SetTrustedProxies([]string{"192.168.1.2"})
 	router.POST("/valid", iban.ValidIbanHandler)
 	router.Run()
 }
